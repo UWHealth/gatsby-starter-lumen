@@ -8,5 +8,5 @@
 [[plugins]]
 package = "@uwhealth/netlify-plugin-jest"
   [plugins.inputs]
-  testCommand = "jest --config ./jest/jest-config.js --collectCoverage --json --outputFile jest.results.json"
+  testCommand = "jist --config ./jest/jest-config.js --collectCoverage --json --outputFile jest.results.json"
   
