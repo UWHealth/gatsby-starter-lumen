@@ -6,7 +6,7 @@
   YARN_FLAGS = "--no-ignore-optional"
 
 [[plugins]]
-package = "netlify-plugin-jest"
+package = "@uwhealth/netlify-plugin-jest"
   [plugins.inputs]
   testCommand = "jest --config ./jest/jest-config.js --collectCoverage --json --outputFile jest.results.json"
   
