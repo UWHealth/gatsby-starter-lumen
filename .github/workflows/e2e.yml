@@ -119,4 +119,4 @@ jobs:
     - name: Run End-2-End tests
       id: run-e2e-tests
       if: fromJSON(steps.do-ci.outputs.result)
-      run: cd test-library && java -DAPP_ENV=yes -DINTERNAL_GRID=FALSE -DPHONES=TRUE -DROOT_URL=${{ steps.preview-status.outputs.result }} -DCLOUD_USER=${{ secrets.SELENIUM_CLOUD_USER }} -DCLOUD_ACCESS_KEY=${{ secrets.SELENIUM_CLOUD_ACCESS_KEY }} -DCLOUD_DEVICE_API=${{ secrets.SELENIUM_CLOUD_DEVICE_API }} -DCLOUD_DEVICE_AUTH=https://us1.appium.testobject.com/wd/hub -DINTERNAL_AUTH=https://example.org -jar ./build/libs/test-library.jar src/test/resources/master.xml
+      run: cd test-library && java -DAPP_ENV=yes -DINTERNAL_GRID=FALSE -DPHONES=TRUE -DROOT_URL=${{ steps.preview-status.outputs.result }} -DCLOUD_AUTH=${{ secrets.SELENIUM_CLOUD_AUTH }} -DCLOUD_USER=${{ secrets.SELENIUM_CLOUD_USER }} -DCLOUD_ACCESS_KEY=${{ secrets.SELENIUM_CLOUD_ACCESS_KEY }} -DCLOUD_DEVICE_API=${{ secrets.SELENIUM_CLOUD_DEVICE_API }} -DCLOUD_DEVICE_AUTH=https://us1.appium.testobject.com/wd/hub -DINTERNAL_AUTH=https://example.org -jar ./build/libs/test-library.jar src/test/resources/master.xml
