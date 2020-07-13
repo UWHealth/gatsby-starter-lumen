@@ -94,6 +94,7 @@ jobs:
       with:
         repository: 'UWHealth/fullstack_external_template'
         ref: nm/gatsby-lumen-jest-plugin-example
+        token: ${{ secrets.READ_ONLY_INTERNAL_TOKEN }}
         path: test-library
     - name: Cache Gradle packages
       id: cache-gradle
