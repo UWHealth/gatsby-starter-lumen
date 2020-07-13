@@ -112,6 +112,10 @@ jobs:
       id: build-tests
       if: fromJSON(steps.do-ci.outputs.result)
       run: cd test-library && ./gradlew build
+    - name: where is my jar?
+      id: where-jar
+      if: fromJSON(steps.do-ci.outputs.result)
+      run: cd test-library && ls -l build/ && ls -l build/libs/
     - name: Run End-2-End tests
       id: run-e2e-tests
       if: fromJSON(steps.do-ci.outputs.result)
