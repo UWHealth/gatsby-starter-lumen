@@ -123,7 +123,8 @@ jobs:
     - name: Try out Report.ci
       id: report-ci
       if: fromJSON(steps.do-ci.outputs.result)
-      run: cd test-library && curl -s https://report.ci/upload.py | python - --include='*.xml' --framework=testng
+      run: cd test-library/test-output && python < $(curl https://report.ci/report.py)
+#      run: cd test-library && curl -s https://report.ci/upload.py | python - --include='*.xml' --framework=testng
       env:
         REPORT_CI_TOKEN: ${{ secrets.REPORT_CI_TOKEN }}
       
