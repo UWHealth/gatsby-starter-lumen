@@ -120,11 +120,15 @@ jobs:
       id: run-e2e-tests
       if: fromJSON(steps.do-ci.outputs.result)
       run: cd test-library && java -DAPP_ENV=yes -DINTERNAL_GRID=FALSE -DPHONES=TRUE -DROOT_URL=${{ steps.preview-status.outputs.result }}/ -DCLOUD_AUTH=${{ secrets.SELENIUM_CLOUD_AUTH }} -DCLOUD_USER=${{ secrets.SELENIUM_CLOUD_USER }} -DCLOUD_ACCESS_KEY=${{ secrets.SELENIUM_CLOUD_ACCESS_KEY }} -DCLOUD_DEVICE_API=${{ secrets.SELENIUM_CLOUD_DEVICE_API }} -DCLOUD_DEVICE_AUTH=https://us1.appium.testobject.com/wd/hub -DINTERNAL_AUTH=https://example.org -jar ./build/libs/test-library.jar src/test/resources/single/win/firefox/ztest.xml
-    - name: Try out Report.ci
-      id: report-ci
+    - name: Try out Report.ci JUNIT report
+      id: report-ci JUNIT report
       if: fromJSON(steps.do-ci.outputs.result)
-      run: cd test-library/test-output && curl https://report.ci/report.py > report.py && python report.py --include-as-testng *.xml
-#      run: cd test-library && curl -s https://report.ci/upload.py | python - --include='*.xml' --framework=testng
+      run: cd test-library/test-output/junitreports/ && curl -s https://report.ci/report.py | python  - --include-as-junit *.xml
       env:
         REPORT_CI_TOKEN: ${{ secrets.REPORT_CI_TOKEN }}
-      
+    - name: Try out Report.ci JUNIT upload
+      id: report-ci JUNIT upload
+      if: fromJSON(steps.do-ci.outputs.result)
+      run: cd test-library/test-output/junitreports/ && curl -s https://report.ci/upload.py | python - --include='*.xml' --framework=junit
+      env:
+        REPORT_CI_TOKEN: ${{ secrets.REPORT_CI_TOKEN }}
