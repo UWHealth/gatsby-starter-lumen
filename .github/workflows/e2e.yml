@@ -1,0 +1,134 @@
+name: End-to-End Tesing with Selenium Java Suite
+
+on:
+  repository_dispatch:
+    types: []
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+
+jobs:
+  e2e-testing:
+    runs-on: ubuntu-latest
+    steps:
+    - name: no skip ci or netlify in comment
+      id: do-ci
+      uses: actions/github-script@v2
+      with:
+        script: |
+          const resp = await github.repos.getCommit({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: '${{ github.event.pull_request.head.sha || github.sha }}',
+          });
+          const skipCI = /\[skip netlify\]|\[skip ci\]/i.test(resp.data.commit.message);
+          console.log(`The value of skipCI: ${skipCI}`);
+          return !skipCI;
+    - name: set skipped e2e status
+      id: skipped-e2e-status
+      if: ${{ !fromJSON(steps.do-ci.outputs.result) }}
+      # See https://github.com/actions/github-script/pull/59 where the ocktokit API being used was behind the times due to a different dependency.
+      # Until @v2 is updated
+      uses: actions/github-script@master
+      with:
+        script: |
+          github.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: '${{ github.event.pull_request.head.sha || github.sha }}',
+              state: 'success',
+              context: 'End-to-End Tesing Skipped!',
+              description: '[skip ci] or [skip netlify] present in message.',
+          })
+    - name: Wait For preview-deploy
+      id: wait-for-preview-deploy
+      if: fromJSON(steps.do-ci.outputs.result)
+      uses: jitterbit/await-check-suites@v1
+      with:
+        # The commit's repository name with owner. For example, `jitterbit/await-check-suites`.
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        # GitHub token for GitHub API requests. When `repository` is modified, set to a personal access token with access to `repository`.
+        token: ${{ secrets.GITHUB_TOKEN }}
+        # default is ${{ github.token }}
+        # Wait for a check suite to be created if none exist. This is important to protect against race conditions if you know a check suite should exist on the `ref`'s commit.
+        #waitForACheckSuite: # default is true
+        # Number of seconds to wait between checks.
+        intervalSeconds: 5
+        # Number of seconds to wait before timing out.
+        timeoutSeconds: 180
+        # Fail step if any of the check suites complete with a conclusion other than 'success'.
+        #failStepIfUnsuccessful: # default is true
+        # Filter check suites for a particular app's slug (e.g., 'github-actions').
+        appSlugFilter: netlify
+        # Only take into account the first check suite ordered by the `created_at` timestamp. If `appSlugFilter` is set, only the first check suite that matches the app's slug is taken into account. This is important for scheduled workflows that only want to take into account pushed workflows.
+        # onlyFirstCheckSuite: # default is false
+    - name: get status for completed preview
+      id: preview-status
+      if: fromJSON(steps.do-ci.outputs.result)
+      uses: actions/github-script@v2
+      with:
+        result-encoding: string
+        script: |
+          const resp = await github.repos.getCombinedStatusForRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: '${{ github.event.pull_request.head.sha || github.sha }}',
+          });
+          const netlifyStatus = resp.data.statuses.find((status) => status.context.startsWith('netlify/'));
+          return netlifyStatus.target_url;
+    - name: target url is not present
+      id: no-target-url
+      if: ${{ fromJSON(steps.do-ci.outputs.result) && !startsWith(steps.preview-status.outputs.result,'https://') }}
+      run: echo '::error::Target URL not present, value=${{ steps.preview-status.outputs.result }}' && exit 1
+    - name: Set up JDK 11
+      id: setup-jdk
+      if: fromJSON(steps.do-ci.outputs.result)
+      uses: actions/setup-java@v1
+      with:
+        java-version: 11
+    - name: Get the tests repo to run
+      id: get-tests
+      if: fromJSON(steps.do-ci.outputs.result)
+      uses: actions/checkout@v2
+      with:
+        repository: 'UWHealth/fullstack_external_template'
+        ref: nm/gatsby-lumen-jest-plugin-example
+        token: ${{ secrets.READ_ONLY_INTERNAL_TOKEN }}
+        path: test-library
+    - name: Cache Gradle packages
+      id: cache-gradle
+      if: fromJSON(steps.do-ci.outputs.result)
+      uses: actions/cache@v2
+      with:
+        path: ~/test-library/.gradle/caches
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+        restore-keys: ${{ runner.os }}-gradle
+    - name: Grant execute permission for gradlew
+      id: gradlew-permission
+      if: fromJSON(steps.do-ci.outputs.result)
+      run: cd test-library && chmod +x gradlew
+    - name: Build with Gradle
+      id: build-tests
+      if: fromJSON(steps.do-ci.outputs.result)
+      run: cd test-library && ./gradlew build
+    - name: where is my jar?
+      id: where-jar
+      if: fromJSON(steps.do-ci.outputs.result)
+      run: cd test-library && ls -l build/ && ls -l build/libs/
+    - name: Run End-2-End tests
+      id: run-e2e-tests
+      if: fromJSON(steps.do-ci.outputs.result)
+      run: cd test-library && java -DAPP_ENV=yes -DINTERNAL_GRID=FALSE -DPHONES=TRUE -DROOT_URL=${{ steps.preview-status.outputs.result }}/ -DCLOUD_AUTH=${{ secrets.SELENIUM_CLOUD_AUTH }} -DCLOUD_USER=${{ secrets.SELENIUM_CLOUD_USER }} -DCLOUD_ACCESS_KEY=${{ secrets.SELENIUM_CLOUD_ACCESS_KEY }} -DCLOUD_DEVICE_API=${{ secrets.SELENIUM_CLOUD_DEVICE_API }} -DCLOUD_DEVICE_AUTH=https://us1.appium.testobject.com/wd/hub -DINTERNAL_AUTH=https://example.org -jar ./build/libs/test-library.jar src/test/resources/single/win/firefox/ztest.xml
+    - name: Try out Report.ci JUNIT report
+      id: report-ci-JUNIT-report
+      if: fromJSON(steps.do-ci.outputs.result)
+      run: cd test-library/test-output/junitreports/ && curl -s https://report.ci/report.py | python  - --include-as-junit *.xml
+      env:
+        REPORT_CI_TOKEN: ${{ secrets.REPORT_CI_TOKEN }}
+    - name: Try out Report.ci JUNIT upload
+      id: report-ci-JUNIT-upload
+      if: fromJSON(steps.do-ci.outputs.result)
+      run: cd test-library/test-output/junitreports/ && curl -s https://report.ci/upload.py | python - --include='*.xml' --framework=junit
+      env:
+        REPORT_CI_TOKEN: ${{ secrets.REPORT_CI_TOKEN }}
